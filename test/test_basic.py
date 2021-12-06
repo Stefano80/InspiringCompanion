@@ -5,6 +5,53 @@ import InspiringCompanion.writer
 from InspiringCompanion import models
 from random import seed
 from unittest.mock import Mock
+from datetime import datetime, timedelta
+
+
+class TestClock(unittest.TestCase):
+
+    def test_basics(self):
+        clock = models.Clock()
+        self.assertIsNotNone(clock)
+        self.assertEqual(timedelta(hours=8), clock.time)
+        p = clock.time_goes_by(12)
+        self.assertEqual({}, p)
+        self.assertEqual(timedelta(hours=8, minutes=12), clock.time)
+        p = clock.time_goes_by(20 * 60)
+        self.assertEqual({"midnight": timedelta(hours=24)}, p)
+
+    def test_add_timer(self):
+        clock = models.Clock()
+        self.assertIsNotNone(clock)
+        self.assertEqual(timedelta(hours=8), clock.time)
+        timer = clock.add_trigger("fireball", time_left=60)
+        self.assertEqual(timedelta(hours=9), timer["fireball"])
+        p = clock.time_goes_by(24 * 60)
+        self.assertEqual({"midnight": timedelta(hours=24), "fireball": timedelta(hours=9)}, p)
+
+    def test_time_triggers(self):
+        clock = models.Clock()
+        clock.add_trigger("fireball", time_left=60)
+        expired_timers = clock.time_goes_by(75)
+        self.assertEqual({"fireball": timedelta(hours=9)}, expired_timers)
+
+    def test_table(self):
+        d = models.Director(channel="default_channel", server="default_server")
+        models.create_table(d.database)
+
+        mock = Mock()
+        mock.server.id = "default_server"
+        mock.channel.id = "default_channel"
+        d.set_scene_from(mock)
+        d.record_scene()
+
+        select = f"SELECT * FROM Triggers WHERE server_id = 'default_server' AND channel_id = 'default_channel'"
+        row = d.database.cursor().execute(select).fetchone()
+
+        self.assertEqual("default_server", row[0])
+        self.assertEqual("default_channel", row[1])
+        self.assertEqual("midnight", row[2])
+        self.assertEqual(24*60, row[3])
 
 
 class TestInspiration(unittest.TestCase):
@@ -120,7 +167,7 @@ class TestScene(unittest.TestCase):
 
         models.create_table(d.database)
 
-        select = f"SELECT * FROM Scenes WHERE guild_id = 'default_server' AND channel_id = 'default_channel'"
+        select = f"SELECT * FROM Scenes WHERE server_id = 'default_server' AND channel_id = 'default_channel'"
         row = d.database.cursor().execute(select).fetchone()
         self.assertEqual('default_server', row[0])
         self.assertEqual('default_channel', row[1])
@@ -128,7 +175,7 @@ class TestScene(unittest.TestCase):
 
     def test_set_scene(self):
         mock = Mock()
-        mock.guild.id = "default"
+        mock.server.id = "default"
         mock.channel.id = "default"
 
         director = models.Director(channel="default", server="default")
@@ -150,5 +197,3 @@ class TestLocation(unittest.TestCase):
         # this is a bit of a cheat that I am using to avoid hitting the fandom page continuously
         self.assertIsNotNone(models.Location("Elturel").image_url(html=data))
         self.assertIsNone(models.Location("NorthClimate").image_url())
-
-

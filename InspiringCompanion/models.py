@@ -3,11 +3,13 @@ from difflib import SequenceMatcher
 from owlready2 import get_ontology
 from random import randint
 from numpy import clip
+from datetime import timedelta
 import sqlite3
 import functools
 from bs4 import BeautifulSoup
 import requests
 import validators
+from collections import OrderedDict
 
 from InspiringCompanion.writer import normalize_entity_name
 
@@ -44,21 +46,28 @@ class Director(object):
 
     def record_scene(self):
 
-        upsert = f"INSERT OR REPLACE INTO Scenes (guild_id, channel_id, location, " \
-                 f"day, wind_strength, wind_direction, rain, temperature, active_calendar) " \
-                 f"VALUES( '{self.server}', '{self.channel}', " \
-                 f"'{self.scene.location.name}', {self.scene.calendar.epoch}, '{self.scene.weather.wind_strength}', " \
-                 f"'{self.scene.weather.wind_direction}', '{self.scene.weather.precipitation}', '{self.scene.weather.temperature}'," \
-                 f"'{self.scene.calendar.name}'); "
+        scenes_upsert = f"INSERT OR REPLACE INTO Scenes (server_id, channel_id, location, " \
+                        f"day, wind_strength, wind_direction, rain, temperature, active_calendar) " \
+                        f"VALUES( '{self.server}', '{self.channel}', " \
+                        f"'{self.scene.location.name}', {self.scene.calendar.epoch}, '{self.scene.weather.wind_strength}', " \
+                        f"'{self.scene.weather.wind_direction}', '{self.scene.weather.precipitation}', '{self.scene.weather.temperature}'," \
+                        f"'{self.scene.calendar.name}'); "
 
-        self.database.cursor().execute(upsert)
+        self.database.cursor().execute(scenes_upsert)
+
+        for t in self.scene.clock.triggers.keys():
+            triggers_upsert = f"INSERT OR REPLACE INTO Triggers (server_id, channel_id, name, minutes) " \
+                              f"VALUES( '{self.server}', '{self.channel}', " \
+                              f"'{t}', '{int(self.scene.clock.triggers[t].total_seconds()) // 60}');"
+
+            self.database.cursor().execute(triggers_upsert)
+
         self.database.commit()
-
         pass
 
-    def record_character(self, name):
-        upsert = f"INSERT OR REPLACE INTO Characters (guild_id, channel_id, name) " \
-                 f"VALUES( '{self.server}', '{self.channel}', '{name}');"
+    def record_character(self, name, user_id):
+        upsert = f"INSERT OR REPLACE INTO Characters (server_id, channel_id, name, user_id) " \
+                 f"VALUES( '{self.server}', '{self.channel}', '{name}', '{user_id}');"
 
         self.database.cursor().execute(upsert)
         self.database.commit()
@@ -66,19 +75,20 @@ class Director(object):
         pass
 
     def find_characters(self):
-        select = f"SELECT name FROM Characters WHERE guild_id = '{self.server}' AND channel_id = '{self.channel}'"
+        select = f"SELECT name FROM Characters WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
         rows = self.database.execute(select).fetchall()
         return {r[0] for r in rows}
 
     def set_scene_from(self, message):
-        self.server = message.guild.id
+        self.server = message.server.id
         self.channel = message.channel.id
 
-        select = f"SELECT * FROM Scenes WHERE guild_id = '{self.server}' AND channel_id = '{self.channel}'"
-        row = self.database.cursor().execute(select).fetchone()
+        select = f"SELECT * FROM Scenes WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
+        row_scenes = self.database.cursor().execute(select).fetchone()
+
         weather_data = {}
 
-        if row is None:
+        if row_scenes is None:
             active_calendar = "Calendar of Harptos"
             location = "Elturel"
             day = 1
@@ -87,18 +97,27 @@ class Director(object):
             weather_data["precipitation"] = 0
             weather_data["temperature"] = 0
         else:
-            location = row[2]
-            day = int(row[3])
-            weather_data["wind_strength"] = int(row[4])
-            weather_data["wind_direction"] = int(row[5])
-            weather_data["precipitation"] = int(row[6])
-            weather_data["temperature"] = int(row[7])
-            active_calendar = row[8]
+            location = row_scenes[2]
+            day = int(row_scenes[3])
+            weather_data["wind_strength"] = int(row_scenes[4])
+            weather_data["wind_direction"] = int(row_scenes[5])
+            weather_data["precipitation"] = int(row_scenes[6])
+            weather_data["temperature"] = int(row_scenes[7])
+            active_calendar = row_scenes[8]
 
         self.scene = Scene(calendar=active_calendar, location=location, weather=weather_data)
         self.scene.calendar.sunrise(day)
 
-        if row is None:
+        select = f"SELECT name, minutes FROM Triggers WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
+        row_triggers = self.database.cursor().execute(select).fetchall()
+
+        if row_triggers is None:
+            self.scene.clock = Clock()
+        else:
+            for r in row_triggers:
+                self.scene.clock.add_trigger(r[0], trigger_time=r[1])
+
+        if row_scenes is None:
             self.record_scene()
 
         pass
@@ -125,8 +144,16 @@ class Director(object):
         return f" {sunrise_text}...\n\n {self.short_log()}."
 
     def gather(self, user):
-        self.record_character(user.display_name)
+        self.record_character(user.display_name, user.id)
         return f"{user.display_name} heeds the call to adventure!"
+
+    def timegoesby(self, minutes):
+        self.scene.clock.time_goes_by(minutes)
+        return f"Time is {self.scene.clock.time}"
+
+    def addtrigger(self, minutes, name=""):
+        self.scene.clock.add_trigger(name, time_left=minutes)
+        return f"Trigger {name} is set at {self.scene.clock.triggers[name]}"
 
 
 class Scene(object):
@@ -135,6 +162,8 @@ class Scene(object):
         self.calendar = Calendar(calendar)
         self.location = Location(location)
         self.weather = Weather(self.location.entity_data.has_climate.name)
+        self.clock = Clock()
+
         if weather is not None:
             self.weather.seed(weather)
 
@@ -198,6 +227,37 @@ class Calendar(Inspiration):
             return self.month.name
         else:
             return f"{self.day} {self.month.name}, {self.year}"
+
+
+class Clock(object):
+
+    def __init__(self, time=timedelta(hours=8)):
+        self.time = time
+        self.triggers = OrderedDict()
+        self.add_trigger("midnight", trigger_time=24 * 60)
+
+    def time_goes_by(self, minutes):
+        self.time += timedelta(minutes=minutes)
+
+        expired_triggers = {k: self.triggers[k] for k in self.triggers if self.triggers[k] <= self.time}
+        self.triggers = {k: self.triggers[k] for k in self.triggers if self.triggers[k] > self.time}
+
+        return expired_triggers
+
+    def add_trigger(self, name, time_left=None, trigger_time=None):
+        if time_left is None and trigger_time is None:
+            return
+        if time_left is not None and trigger_time is not None:
+            return
+
+        if time_left is not None:
+            self.triggers[name] = self.time + timedelta(minutes=time_left)
+
+        if trigger_time is not None:
+            self.triggers[name] = timedelta(minutes=trigger_time)
+
+        self.triggers = OrderedDict(sorted(self.triggers.items(), key=lambda x: x[1]))
+        return self.triggers
 
 
 class Weather(Inspiration):
@@ -280,7 +340,7 @@ class Location(Inspiration):
 
 def create_table(con):
     sql_create_scene_table = """ CREATE TABLE IF NOT EXISTS Scenes (
-                                        guild_id ui_text NOT NULL,
+                                        server_id ui_text NOT NULL,
                                         channel_id ui_text NOT NULL,
                                         location ui_text NOT NULL,
                                         day int NOT NULL,
@@ -290,20 +350,29 @@ def create_table(con):
                                         temperature int NOT NULL,
                                         active_calendar ui_text NOT NULL); """
 
-    sql_scene_index = f"CREATE UNIQUE INDEX idx_guild_channel_scenes ON Scenes (guild_id, channel_id)"
+    sql_scene_index = f"CREATE UNIQUE INDEX idx_scenes ON Scenes (server_id, channel_id)"
 
-    sql_default_values = f"INSERT OR REPLACE INTO Scenes (guild_id, channel_id, location, " \
+    sql_default_values = f"INSERT OR REPLACE INTO Scenes (server_id, channel_id, location, " \
                          f"day, wind_strength, wind_direction, rain, temperature, active_calendar) " \
                          f"VALUES( 'default_server', 'default_channel', " \
                          f"'Elturel', '0', '0', " \
                          f"'0', '0', '0', 'Calendar_of_Harptos'); "
 
     sql_create_characters_table = """ CREATE TABLE IF NOT EXISTS Characters (
-                                        guild_id ui_text NOT NULL,
+                                        server_id ui_text NOT NULL,
                                         channel_id ui_text NOT NULL,
-                                        name ui_text NOT NULL); """
+                                        name ui_text NOT NULL,
+                                        user_id ui_text NOT NULL); """
 
-    sql_characters_index = f"CREATE UNIQUE INDEX idx_name_characters ON Characters (name)"
+    sql_characters_index = f"CREATE UNIQUE INDEX idx_characters ON Characters (name, user_id)"
+
+    sql_create_triggers_table = """ CREATE TABLE IF NOT EXISTS Triggers (
+                                        server_id ui_text NOT NULL,
+                                        channel_id ui_text NOT NULL,
+                                        name ui_text NOT NULL,
+                                        minutes int NOT NULL); """
+
+    sql_triggers_index = f"CREATE UNIQUE INDEX idx_triggers ON Triggers (server_id, channel_id)"
 
     # create tables
     if con is not None:
@@ -312,6 +381,8 @@ def create_table(con):
         con.cursor().execute(sql_scene_index)
         con.cursor().execute(sql_create_characters_table)
         con.cursor().execute(sql_characters_index)
+        con.cursor().execute(sql_create_triggers_table)
+        con.cursor().execute(sql_triggers_index)
         con.cursor().execute(sql_default_values)
 
     con.commit()
