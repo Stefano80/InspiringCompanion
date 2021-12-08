@@ -77,6 +77,20 @@ async def sunrise(discord_context, *arg):
 
 @client.command()
 @director.action
+async def timegoesby(discord_context, *arg):
+    """
+    Let some time pass
+    """
+    if len(arg) == 0:
+        num_minutes = 1
+    else:
+        num_minutes = int(arg[0])
+    await discord_context.send(director.timegoesby(num_minutes))
+    pass
+
+
+@client.command()
+@director.action
 async def log(discord_context):
     """
     Create a summary of the current day using the last messages from the user
