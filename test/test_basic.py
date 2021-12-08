@@ -15,37 +15,37 @@ class TestClock(unittest.TestCase):
         self.assertIsNotNone(clock)
         self.assertEqual(timedelta(hours=8), clock.time)
         p = clock.time_goes_by(12)
-        self.assertEqual({}, p)
+        self.assertEqual(None, p)
         self.assertEqual(timedelta(hours=8, minutes=12), clock.time)
         p = clock.time_goes_by(20 * 60)
-        self.assertEqual({"midnight": timedelta(hours=24)}, p)
+        self.assertEqual("midnight", p)
 
     def test_add_timer(self):
         clock = models.Clock()
         self.assertIsNotNone(clock)
         self.assertEqual(timedelta(hours=8), clock.time)
-        timer = clock.add_trigger("fireball", time_left=60)
-        self.assertEqual(timedelta(hours=9), timer["fireball"])
+        clock.add_timer("fireball", time_left=60)
+        self.assertEqual(timedelta(hours=9),  clock.timers["fireball"])
         p = clock.time_goes_by(24 * 60)
-        self.assertEqual({"midnight": timedelta(hours=24), "fireball": timedelta(hours=9)}, p)
+        self.assertEqual("fireball", p)
 
     def test_time_triggers(self):
         clock = models.Clock()
-        clock.add_trigger("fireball", time_left=60)
-        expired_timers = clock.time_goes_by(75)
-        self.assertEqual({"fireball": timedelta(hours=9)}, expired_timers)
+        clock.add_timer("fireball", time_left=60)
+        expired = clock.time_goes_by(75)
+        self.assertEqual("fireball", expired)
 
     def test_table(self):
-        d = models.Director(channel="default_channel", server="default_server")
+        d = models.Director()
         models.create_table(d.database)
 
         mock = Mock()
-        mock.server.id = "default_server"
+        mock.guild.id = "default_server"
         mock.channel.id = "default_channel"
         d.set_scene_from(mock)
         d.record_scene()
 
-        select = f"SELECT * FROM Triggers WHERE server_id = 'default_server' AND channel_id = 'default_channel'"
+        select = f"SELECT * FROM Timers WHERE server_id = 'default_server' AND channel_id = 'default_channel'"
         row = d.database.cursor().execute(select).fetchone()
 
         self.assertEqual("default_server", row[0])
@@ -96,10 +96,10 @@ class TestCalendar(unittest.TestCase):
         self.assertEqual(c.day, 2)
         c.sunrise(20)
         self.assertEqual(22, c.day)
-        self.assertEqual(f"22 Hammer, 1", c.status_text())
+        self.assertEqual(f"22 Hammer, 1", c.description())
         c.sunrise(9)
         self.assertEqual("Midwinter", c.month.name)
-        self.assertEqual(f"Midwinter", c.status_text())
+        self.assertEqual(f"Midwinter", c.description())
         c.sunrise(1)
         self.assertEqual("Alturiak", c.month.name)
         c.sunrise(333)
@@ -158,12 +158,14 @@ class TestScene(unittest.TestCase):
 
     def test_exist(self):
         w = models.Weather("North Climate")
-        scene = models.Scene(calendar="Calendar of Harptos", location="Elturel")
+        scene = models.Scene()
         w.sunrise(1)
         self.assertIsNotNone(scene)
 
     def test_sqlite_connection(self):
-        d = models.Director(channel="default_channel", server="default_server")
+        d = models.Director()
+        d.server = "default_server"
+        d.channel = "default_channel"
 
         models.create_table(d.database)
 
@@ -175,16 +177,16 @@ class TestScene(unittest.TestCase):
 
     def test_set_scene(self):
         mock = Mock()
-        mock.server.id = "default"
+        mock.guild.id = "default"
         mock.channel.id = "default"
 
-        director = models.Director(channel="default", server="default")
+        director = models.Director()
         models.create_table(director.database)
         director.set_scene_from(mock)
         self.assertEqual(1, director.scene.calendar.day)
 
     def test_scene_description(self):
-        scene = models.Scene(calendar="Calendar_of_Harptos", location="Elturel")
+        scene = models.Scene()
         self.assertIsNotNone(scene.description())
         self.assertTrue("We are in Elturel" in scene.description())
 
@@ -197,3 +199,53 @@ class TestLocation(unittest.TestCase):
         # this is a bit of a cheat that I am using to avoid hitting the fandom page continuously
         self.assertIsNotNone(models.Location("Elturel").image_url(html=data))
         self.assertIsNone(models.Location("NorthClimate").image_url())
+
+
+class TestItems(unittest.TestCase):
+    def testCharging(self):
+        ration = models.InventoryItem("ration")
+        ration.charges = 1
+        self.assertIsNotNone(ration.entity_data)
+        self.assertEqual(("-", "1", "1w1"), ration.parse_charging_formula())
+        ration.recharge()
+        self.assertEqual(0, ration.charges)
+
+        wand = models.InventoryItem("wand of fireballs")
+        for n in range(10):
+            wand.charges = 10
+            wand.recharge()
+            self.assertLess(10, wand.charges)
+            self.assertLess(wand.charges, 15)
+
+    def testSceneIntegration(self):
+        mock = Mock()
+        mock.guild.id = "default"
+        mock.channel.id = "default"
+
+        director = models.Director()
+        models.create_table(director.database)
+
+        director.set_scene_from(mock)
+        director.additem(20, "ration")
+        self.assertEqual(20, director.scene.inventory.items[0].charges)
+
+        director.set_scene_from(mock)
+        self.assertEqual(20, director.scene.inventory.items[0].charges)
+
+        director.additem(20, "ration")
+        director.additem(20, "ration")
+        director.additem(20, "ration")
+
+        director.set_scene_from(mock)
+        self.assertEqual(20, director.scene.inventory.items[0].charges)
+        self.assertEqual(1, len(director.scene.inventory.items))
+
+        director.sunrise(None, 1)
+        self.assertEqual(19, director.scene.inventory.items[0].charges)
+        self.assertEqual(1, len(director.scene.inventory.items))
+
+
+
+
+
+

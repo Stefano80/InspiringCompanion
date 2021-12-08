@@ -10,23 +10,27 @@ from bs4 import BeautifulSoup
 import requests
 import validators
 from collections import OrderedDict
+from decouple import config
 
 from InspiringCompanion.writer import normalize_entity_name
+from InspiringCompanion.archivist import Archivist
 
 TEMPERATURE_VAR = 2
 WIND_STRENGTH_VAR = 2
 WIND_DIRECTION_VAR = 60
 PRECIPITATION_VAR = 20
-ONTOLOGY = get_ontology(
-    "https://gist.githubusercontent.com/Stefano80/aa461b12305647eac19d34a8e9a20fd5/raw/45bffe3b1ea643c7d45688b721fc196ee0c77f31/inspiration.owl").load()
+ONTOLOGY_PATH = config('ONTOLOGY_PATH', default='"https://gist.githubusercontent.com/Stefano80'
+                                                '/aa461b12305647eac19d34a8e9a20fd5/raw/45bffe3b1ea643c7d45688b721fc196ee0c77f31/inspiration.owl"')
+
+ONTOLOGY = get_ontology(ONTOLOGY_PATH).load()
 
 
 class Director(object):
-    def __init__(self, channel=None, server=None, database=":memory:"):
-        self.channel = channel
-        self.server = server
-        self.database = sqlite3.connect(database)
+    def __init__(self, database=":memory:"):
+        self.channel = None
+        self.server = None
         self.scene = None
+        self.database = sqlite3.connect(database)
 
     def action(self, func):
         @functools.wraps(func)
@@ -42,82 +46,46 @@ class Director(object):
         return getattr(self, emojis[emoji])(user)
 
     def short_log(self):
-        return f"{self.scene.calendar.status_text()}\n{self.scene.description()}"
+        return f"{self.scene.calendar.description()}\n{self.scene.description()}"
+
+    def call_archivist(self):
+        return Archivist(self.database, self.server, self.channel)
 
     def record_scene(self):
+        return self.call_archivist().record_scene(self.scene)
 
-        scenes_upsert = f"INSERT OR REPLACE INTO Scenes (server_id, channel_id, location, " \
-                        f"day, wind_strength, wind_direction, rain, temperature, active_calendar) " \
-                        f"VALUES( '{self.server}', '{self.channel}', " \
-                        f"'{self.scene.location.name}', {self.scene.calendar.epoch}, '{self.scene.weather.wind_strength}', " \
-                        f"'{self.scene.weather.wind_direction}', '{self.scene.weather.precipitation}', '{self.scene.weather.temperature}'," \
-                        f"'{self.scene.calendar.name}'); "
-
-        self.database.cursor().execute(scenes_upsert)
-
-        for t in self.scene.clock.triggers.keys():
-            triggers_upsert = f"INSERT OR REPLACE INTO Triggers (server_id, channel_id, name, minutes) " \
-                              f"VALUES( '{self.server}', '{self.channel}', " \
-                              f"'{t}', '{int(self.scene.clock.triggers[t].total_seconds()) // 60}');"
-
-            self.database.cursor().execute(triggers_upsert)
-
-        self.database.commit()
-        pass
+    def find_scene(self):
+        return self.call_archivist().find_scene()
 
     def record_character(self, name, user_id):
-        upsert = f"INSERT OR REPLACE INTO Characters (server_id, channel_id, name, user_id) " \
-                 f"VALUES( '{self.server}', '{self.channel}', '{name}', '{user_id}');"
-
-        self.database.cursor().execute(upsert)
-        self.database.commit()
-
-        pass
+        return self.call_archivist().record_character(name, user_id)
 
     def find_characters(self):
-        select = f"SELECT name FROM Characters WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
-        rows = self.database.execute(select).fetchall()
-        return {r[0] for r in rows}
+        return self.call_archivist().find_characters()
+
+    def find_timers(self):
+        return self.call_archivist().find_timers()
+
+    def delete_timers(self):
+        return self.call_archivist().delete_timers()
+
+    def find_items(self):
+        return self.call_archivist().find_items()
+
+    def delete_items(self):
+        return self.call_archivist().delete_items()
 
     def set_scene_from(self, message):
-        self.server = message.server.id
+        self.server = message.guild.id
         self.channel = message.channel.id
 
-        select = f"SELECT * FROM Scenes WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
-        row_scenes = self.database.cursor().execute(select).fetchone()
+        scene_data = self.find_scene()
+        timers_data = self.find_timers()
+        inventory_data = self.find_items()
 
-        weather_data = {}
+        self.scene = Scene(scene_data, timers_data, inventory_data)
 
-        if row_scenes is None:
-            active_calendar = "Calendar of Harptos"
-            location = "Elturel"
-            day = 1
-            weather_data["wind_strength"] = 0
-            weather_data["wind_direction"] = 0
-            weather_data["precipitation"] = 0
-            weather_data["temperature"] = 0
-        else:
-            location = row_scenes[2]
-            day = int(row_scenes[3])
-            weather_data["wind_strength"] = int(row_scenes[4])
-            weather_data["wind_direction"] = int(row_scenes[5])
-            weather_data["precipitation"] = int(row_scenes[6])
-            weather_data["temperature"] = int(row_scenes[7])
-            active_calendar = row_scenes[8]
-
-        self.scene = Scene(calendar=active_calendar, location=location, weather=weather_data)
-        self.scene.calendar.sunrise(day)
-
-        select = f"SELECT name, minutes FROM Triggers WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
-        row_triggers = self.database.cursor().execute(select).fetchall()
-
-        if row_triggers is None:
-            self.scene.clock = Clock()
-        else:
-            for r in row_triggers:
-                self.scene.clock.add_trigger(r[0], trigger_time=r[1])
-
-        if row_scenes is None:
+        if scene_data is None:
             self.record_scene()
 
         pass
@@ -141,46 +109,112 @@ class Director(object):
     def sunrise(self, user, day=1):
         sunrise_text = self.scene.sunrise(day)
         self.record_scene()
-        return f" {sunrise_text}...\n\n {self.short_log()}."
+        self.delete_timers()
+
+        return f" {sunrise_text}...\n\n{self.short_log()}"
 
     def gather(self, user):
         self.record_character(user.display_name, user.id)
         return f"{user.display_name} heeds the call to adventure!"
 
-    def timegoesby(self, minutes):
-        self.scene.clock.time_goes_by(minutes)
-        return f"Time is {self.scene.clock.time}"
+    def one_minute(self, user):
+        return self.timegoesby(1)
 
-    def addtrigger(self, minutes, name=""):
-        self.scene.clock.add_trigger(name, time_left=minutes)
-        return f"Trigger {name} is set at {self.scene.clock.triggers[name]}"
+    def ten_minutes(self, user):
+        return self.timegoesby(10)
+
+    def one_hour(self, user):
+        return self.timegoesby(60)
+
+    def timegoesby(self, minutes):
+        t = self.scene.clock.time_goes_by(minutes)
+        output = ""
+        if t is not None:
+            output += f"The timer {t} just expired. "
+
+        self.record_scene()
+
+        return f"{output}It is {self.scene.clock.time}."
+
+    def addtimer(self, minutes, name=""):
+        self.scene.clock.add_timer(name, time_left=minutes)
+        self.record_scene()
+        return f"{name} timer is set at {self.scene.clock.timers[name]}"
+
+    def additem(self, charges, name):
+        self.scene.inventory.add_item(charges, name)
+        self.record_scene()
+        return f"{charges} {name} added to the scene"
 
 
 class Scene(object):
 
-    def __init__(self, calendar=None, location=None, weather=None):
-        self.calendar = Calendar(calendar)
-        self.location = Location(location)
-        self.weather = Weather(self.location.entity_data.has_climate.name)
-        self.clock = Clock()
+    def __init__(self, scene_data=None, timers_data=None, inventory_data=None):
 
-        if weather is not None:
-            self.weather.seed(weather)
+        if scene_data is None:
+            active_calendar = "Calendar of Harptos"
+            location = "Elturel"
+            day = 1
+            weather_data = (0, 0, 0, 0)
+            minutes = 8 * 60
+        else:
+            location = scene_data[2]
+            day = int(scene_data[3])
+            weather_data = scene_data[4:8]
+            active_calendar = scene_data[8]
+            minutes = scene_data[9]
+
+        self.calendar = Calendar(active_calendar)
+        self.calendar.sunrise(day)
+
+        self.location = Location(location)
+
+        self.weather = Weather(self.location.entity_data.has_climate.name)
+        self.weather.seed(weather_data)
+
+        self.clock = Clock()
+        self.clock = Clock(time=timedelta(minutes=minutes))
+
+        self.inventory = Inventory()
+
+        if timers_data is not None:
+            for r in timers_data:
+                if timedelta(minutes=r[1]) > self.clock.time:
+                    self.clock.add_timer(r[0], expiring_time=r[1])
+
+        if inventory_data is not None:
+            for record in inventory_data:
+                self.inventory.add_item(record[1], record[0])
+
+        pass
 
     def description(self):
-        description = f"We are in {self.location.name}. It {self.weather.precipitation_text()}. " \
+        description = f"We are in {self.location.name}. It is {self.clock.time}.\n" \
+                      f"It {self.weather.precipitation_text()}. " \
                       f"The temperature is {self.weather.temperature_text()} with {self.weather.wind_strength_text()}"
 
         if self.weather.wind_strength_text() != "no winds":
             description += f" {self.weather.wind_direction_text()}"
 
-        description += "."
+        for n, r in enumerate(self.clock.timers.keys()):
+            if r == "midnight":
+                break
+            if n == 0:
+                description += ".\n\nUpcoming events:\n"
+            description += f"{r}: {self.clock.timers[r]}\n"
+
+        for n, item in enumerate(self.inventory.items):
+            if n == 0:
+                description += "\nInventory:\n"
+            description += f"{item.charges} {item.name}\n"
 
         return description
 
     def sunrise(self, num_sunrises):
         self.calendar.sunrise(num_sunrises)
         self.weather.sunrise(num_sunrises)
+        self.inventory.sunrise(num_sunrises)
+        self.clock = Clock()
         if num_sunrises == 1:
             return f"One day has passed"
         else:
@@ -192,9 +226,6 @@ class Inspiration(object):
     def __init__(self, name):
         self.entity_data = find_entity_by_name(name)
         self.name = normalize_entity_name(self.entity_data.name)
-
-    def status_text(self):
-        pass
 
 
 class Calendar(Inspiration):
@@ -222,7 +253,7 @@ class Calendar(Inspiration):
 
         pass
 
-    def status_text(self):
+    def description(self):
         if self.month.has_days == 1:
             return self.month.name
         else:
@@ -233,31 +264,75 @@ class Clock(object):
 
     def __init__(self, time=timedelta(hours=8)):
         self.time = time
-        self.triggers = OrderedDict()
-        self.add_trigger("midnight", trigger_time=24 * 60)
+        self.timers = OrderedDict()
+        self.add_timer("midnight", expiring_time=24 * 60)
 
     def time_goes_by(self, minutes):
-        self.time += timedelta(minutes=minutes)
 
-        expired_triggers = {k: self.triggers[k] for k in self.triggers if self.triggers[k] <= self.time}
-        self.triggers = {k: self.triggers[k] for k in self.triggers if self.triggers[k] > self.time}
+        target_time = self.time + timedelta(minutes=minutes)
+        next_timer = next(iter(self.timers.items()))
 
-        return expired_triggers
+        if target_time < next_timer[1]:
+            self.time = target_time
+            return None
+        else:
+            self.time = next_timer[1]
+            self.timers.pop(next_timer[0])
+            return next_timer[0]
 
-    def add_trigger(self, name, time_left=None, trigger_time=None):
-        if time_left is None and trigger_time is None:
+    def add_timer(self, name, time_left=None, expiring_time=None):
+        if time_left is None and expiring_time is None:
             return
-        if time_left is not None and trigger_time is not None:
+        if time_left is not None and expiring_time is not None:
             return
 
         if time_left is not None:
-            self.triggers[name] = self.time + timedelta(minutes=time_left)
+            self.timers[name] = self.time + timedelta(minutes=time_left)
 
-        if trigger_time is not None:
-            self.triggers[name] = timedelta(minutes=trigger_time)
+        if expiring_time is not None:
+            self.timers[name] = timedelta(minutes=expiring_time)
 
-        self.triggers = OrderedDict(sorted(self.triggers.items(), key=lambda x: x[1]))
-        return self.triggers
+        self.timers = OrderedDict(sorted(self.timers.items(), key=lambda x: x[1]))
+        return
+
+
+class Inventory(object):
+    def __init__(self):
+        self.items = []
+
+    def add_item(self, charges, name):
+        item = InventoryItem(name)
+        item.charges = charges
+        self.items.append(item)
+
+    def sunrise(self, num_sunrises):
+        for item in self.items:
+            for n in range(num_sunrises):
+                item.recharge()
+
+
+class InventoryItem(Inspiration):
+    def __init__(self, name):
+        super().__init__(name)
+        self.charges = 0
+
+    def parse_charging_formula(self):
+        p = self.entity_data.has_charging_formula.split("/")
+        sign = p[0][0]
+        freq = p[0][1:]
+        return sign, freq, p[1]
+
+    def recharge(self):
+        f = self.parse_charging_formula()
+        dices = f[2].split("w")
+        dices.append(1)  # in case the 1 was omitted
+        change = sum([randint(1, int(dices[1])) for n in range(int(dices[0]))])
+        if f[0] == "-":
+            self.charges -= change
+        else:
+            self.charges += change
+
+        self.charges = max(0, self.charges)
 
 
 class Weather(Inspiration):
@@ -270,10 +345,10 @@ class Weather(Inspiration):
         self.precipitation = self.entity_data.has_precipitation
 
     def seed(self, data):
-        self.temperature = data["temperature"]
-        self.wind_strength = data["wind_strength"]
-        self.wind_direction = data["wind_direction"]
-        self.precipitation = data["precipitation"]
+        self.temperature = data[0]
+        self.wind_strength = data[1]
+        self.wind_direction = data[2]
+        self.precipitation = data[3]
 
     def sunrise(self, num_sunrises):
         for n in range(min(num_sunrises, 20)):
@@ -348,15 +423,16 @@ def create_table(con):
                                         wind_direction int NOT NULL,
                                         rain int NOT NULL,
                                         temperature int NOT NULL,
-                                        active_calendar ui_text NOT NULL); """
+                                        active_calendar ui_text NOT NULL,
+                                        minutes int NOT NULL); """
 
     sql_scene_index = f"CREATE UNIQUE INDEX idx_scenes ON Scenes (server_id, channel_id)"
 
     sql_default_values = f"INSERT OR REPLACE INTO Scenes (server_id, channel_id, location, " \
-                         f"day, wind_strength, wind_direction, rain, temperature, active_calendar) " \
+                         f"day, wind_strength, wind_direction, rain, temperature, active_calendar, minutes) " \
                          f"VALUES( 'default_server', 'default_channel', " \
                          f"'Elturel', '0', '0', " \
-                         f"'0', '0', '0', 'Calendar_of_Harptos'); "
+                         f"'0', '0', '0', 'Calendar_of_Harptos', '480'); "
 
     sql_create_characters_table = """ CREATE TABLE IF NOT EXISTS Characters (
                                         server_id ui_text NOT NULL,
@@ -366,31 +442,46 @@ def create_table(con):
 
     sql_characters_index = f"CREATE UNIQUE INDEX idx_characters ON Characters (name, user_id)"
 
-    sql_create_triggers_table = """ CREATE TABLE IF NOT EXISTS Triggers (
+    sql_create_timers_table = """ CREATE TABLE IF NOT EXISTS Timers (
                                         server_id ui_text NOT NULL,
                                         channel_id ui_text NOT NULL,
                                         name ui_text NOT NULL,
                                         minutes int NOT NULL); """
 
-    sql_triggers_index = f"CREATE UNIQUE INDEX idx_triggers ON Triggers (server_id, channel_id)"
+    sql_create_items_table = """ CREATE TABLE IF NOT EXISTS Items (
+                                        server_id ui_text NOT NULL,
+                                        channel_id ui_text NOT NULL,
+                                        name ui_text NOT NULL,
+                                        quantity int NOT NULL,
+                                        max_quantity int,
+                                        next_recharge int); """
+
+    sql_items_index = f"CREATE UNIQUE INDEX idx_items ON Items (server_id, channel_id, name)"
 
     # create tables
     if con is not None:
         # create projects table
         con.cursor().execute(sql_create_scene_table)
         con.cursor().execute(sql_scene_index)
-        con.cursor().execute(sql_create_characters_table)
-        con.cursor().execute(sql_characters_index)
-        con.cursor().execute(sql_create_triggers_table)
-        con.cursor().execute(sql_triggers_index)
         con.cursor().execute(sql_default_values)
 
+        con.cursor().execute(sql_create_characters_table)
+        con.cursor().execute(sql_characters_index)
+        con.cursor().execute(sql_create_timers_table)
+        con.cursor().execute(sql_create_items_table)
+        con.cursor().execute(sql_items_index)
+
     con.commit()
+
+    pass
 
 
 emojis = {
     "\U0001F304": "sunrise",
-    "\U0001F39F": "gather"
+    "\U0001F39F": "gather",
+    "\U0001F550": "one_minute",
+    "\U0001F51F": "ten_minutes",
+    u"\u26FA": "one_hour"
 }
 
 

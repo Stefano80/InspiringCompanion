@@ -4,6 +4,7 @@ import InspiringCompanion.models
 import InspiringCompanion.writer
 from InspiringCompanion import models, writer
 from unittest.mock import Mock
+import datetime
 
 
 class TestDirector(unittest.TestCase):
@@ -12,14 +13,14 @@ class TestDirector(unittest.TestCase):
         director = models.Director()
         models.create_table(director.database)
         mock = Mock()
-        mock.server.id = "default"
+        mock.guild.id = "default"
         mock.channel.id = "default"
         director.set_scene_from(mock)
         self.assertEqual("Elturel", director.scene.location.name)
 
     def test_database_commit(self):
         mock = Mock()
-        mock.server.id = "default02"
+        mock.guild.id = "default02"
         mock.channel.id = "default02"
 
         director = models.Director()
@@ -47,7 +48,7 @@ class TestDirector(unittest.TestCase):
         director = models.Director()
         models.create_table(director.database)
         mock = Mock()
-        mock.server.id = "default_server"
+        mock.guild.id = "default_server"
         mock.channel.id = "default_channel"
         director.set_scene_from(mock)
         t = director.scene.weather.local_temperature()
@@ -68,7 +69,7 @@ class TestDirector(unittest.TestCase):
         director = models.Director()
         models.create_table(director.database)
         mock = Mock()
-        mock.server.id = "default_server"
+        mock.guild.id = "default_server"
         mock.channel.id = "default_channel"
         director.set_scene_from(mock)
         director.sunrise(None, day=3)
@@ -80,7 +81,7 @@ class TestDirector(unittest.TestCase):
         director = models.Director()
         models.create_table(director.database)
         mock = Mock()
-        mock.server.id = "default_server"
+        mock.guild.id = "default_server"
         mock.channel.id = "default_channel"
 
         director.set_scene_from(mock)
@@ -94,7 +95,7 @@ class TestDirector(unittest.TestCase):
         director = models.Director()
         models.create_table(director.database)
         mock = Mock()
-        mock.server.id = "default_server"
+        mock.guild.id = "default_server"
         mock.channel.id = "default_channel"
 
         director.set_scene_from(mock)
@@ -104,12 +105,35 @@ class TestDirector(unittest.TestCase):
         self.assertEqual({"Dorn", "Alwen Moonruby"}, director.find_characters())
 
     def test_addtriger(self):
-        pass #ToDo
+        director = models.Director()
+        models.create_table(director.database)
+        mock = Mock()
+        mock.guild.id = "default_server"
+        mock.channel.id = "default_channel"
+        director.set_scene_from(mock)
+
+        director.addtimer(60, "fireball")
+
+        self.assertEqual(2, len(director.scene.clock.timers))
+        self.assertTrue("fireball" in director.scene.clock.timers.keys())
+        self.assertTrue("midnight" in director.scene.clock.timers.keys())
+        self.assertEqual(datetime.timedelta(hours=9), director.scene.clock.timers["fireball"])
+        self.assertEqual(datetime.timedelta(hours=24), director.scene.clock.timers["midnight"])
 
     def test_timegoesby(self):
-        pass #ToDo
+        director = models.Director()
+        models.create_table(director.database)
+        mock = Mock()
+        mock.guild.id = "default_server"
+        mock.channel.id = "default_channel"
+        director.set_scene_from(mock)
 
-
+        director.addtimer(60, "fireball")
+        director.timegoesby(75)
+        self.assertEqual(datetime.timedelta(hours=9), director.scene.clock.time)
+        director.set_scene_from(mock)
+        director.timegoesby(60)
+        self.assertEqual(datetime.timedelta(hours=10), director.scene.clock.time)
 
 
 class TestWriter(unittest.TestCase):
