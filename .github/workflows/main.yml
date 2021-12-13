@@ -44,7 +44,8 @@ jobs:
         with:
           files: InspiringCompanion/ resources/inspiration.owl main.py
           dest: InspiringCompanion.zip
+          recursive: True
       - uses: actions/upload-artifact@v1
         with:
           name: InspiringCompanionArtifact
-          path: ${{ github.workspace }}/InspiringCompanion.zip
+          path: ${{ github.workspace }}
