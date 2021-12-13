@@ -19,8 +19,7 @@ TEMPERATURE_VAR = 2
 WIND_STRENGTH_VAR = 2
 WIND_DIRECTION_VAR = 60
 PRECIPITATION_VAR = 20
-ONTOLOGY_PATH = config('ONTOLOGY_PATH', default='"https://gist.githubusercontent.com/Stefano80'
-                                                '/aa461b12305647eac19d34a8e9a20fd5/raw/45bffe3b1ea643c7d45688b721fc196ee0c77f31/inspiration.owl"')
+ONTOLOGY_PATH = config('ONTOLOGY_PATH', default='https://gist.github.com/Stefano80/aa461b12305647eac19d34a8e9a20fd5')
 
 ONTOLOGY = get_ontology(ONTOLOGY_PATH).load()
 
