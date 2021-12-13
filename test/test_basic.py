@@ -193,10 +193,10 @@ class TestScene(unittest.TestCase):
 
 class TestLocation(unittest.TestCase):
     def test_image_url(self):
-        with open("elturel_page.html", "r") as file:
-            data = file.read().replace('\n', '')
 
-        # this is a bit of a cheat that I am using to avoid hitting the fandom page continuously
+        data = '<meta property="og:image" content="https://static.wikia.nocookie.net/forgottenrealms/images/3/35' \
+               '/Hellrider_ward_token.jpg/revision/latest?cb=20190919135150"/> '
+
         self.assertIsNotNone(models.Location("Elturel").image_url(html=data))
         self.assertIsNone(models.Location("NorthClimate").image_url())
 
