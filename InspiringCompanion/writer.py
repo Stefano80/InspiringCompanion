@@ -12,15 +12,18 @@ def split_camel_case(word):
 
 
 def compile_log(characters, scene_description, user_text):
-    participants = "We, " + ", ".join(characters) + ", heeded the adventure's call."
-    return f"{participants}\n\n{scene_description}\n\n{user_text}"
+    if len(characters) >= 1:
+        participants = ", ".join(characters) + " heeded the adventure's call. "
+    else:
+        participants = ''
+    return f"{participants}{scene_description} {user_text}"
 
 
-async def stick_messages_together(channel, ignore):
+def stick_messages_together(messages, ignore):
     user_text = ""
 
     count = 0
-    async for m in channel.history(limit=20, oldest_first=False):
+    for m in messages:
         count += 1
         if count == 1:
             current_author = m.author
@@ -30,6 +33,6 @@ async def stick_messages_together(channel, ignore):
         if m.content[0] in ignore:
             continue
 
-        user_text = f"{m.content} " + user_text
+        user_text = f"{m.content} {user_text}"
 
     return user_text

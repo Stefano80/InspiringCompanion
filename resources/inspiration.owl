@@ -169,6 +169,11 @@
 <has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">1/1w4</has_charging_formula>
 </InventoryItem>
 
+<InventoryItem rdf:about="https://forgottenrealms.fandom.com/wiki/Potion_of_healing">
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+<has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">1/0w1</has_charging_formula>
+</InventoryItem>
+
 <City rdf:about="https://forgottenrealms.fandom.com/wiki/Baldur%27s_Gate">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
   <is_located_in rdf:resource="#SwordCoast"/>

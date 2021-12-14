@@ -12,8 +12,8 @@ import validators
 from collections import OrderedDict
 from decouple import config
 
-from InspiringCompanion.writer import normalize_entity_name
 from InspiringCompanion.archivist import Archivist
+from InspiringCompanion import writer
 
 TEMPERATURE_VAR = 2
 WIND_STRENGTH_VAR = 2
@@ -44,8 +44,10 @@ class Director(object):
     def reaction(self, emoji, user):
         return getattr(self, emojis[emoji])(user)
 
-    def short_log(self):
-        return f"{self.scene.calendar.description()}\n{self.scene.description()}"
+    def inspiration(self):
+        return f"{self.scene.calendar.description()}\n" \
+               f"{self.scene.description()}\n" \
+               f"{writer.compile_log(self.find_characters(), '', '')}"
 
     def call_archivist(self):
         return Archivist(self.database, self.server, self.channel)
@@ -61,6 +63,9 @@ class Director(object):
 
     def find_characters(self):
         return self.call_archivist().find_characters()
+
+    def delete_characters(self):
+        return self.call_archivist().delete_characters()
 
     def find_timers(self):
         return self.call_archivist().find_timers()
@@ -105,24 +110,28 @@ class Director(object):
 
         return message
 
-    def sunrise(self, user, day=1):
+    def sunrise(self, _, day=1):
         sunrise_text = self.scene.sunrise(day)
         self.record_scene()
         self.delete_timers()
 
-        return f" {sunrise_text}...\n\n{self.short_log()}"
+        return f" {sunrise_text}...\n\n{self.inspiration()}"
 
     def gather(self, user):
         self.record_character(user.display_name, user.id)
         return f"{user.display_name} heeds the call to adventure!"
 
-    def one_minute(self, user):
+    def disband(self, _):
+        self.delete_characters()
+        return f"There is nothing to see here"
+
+    def one_minute(self, _):
         return self.timegoesby(1)
 
-    def ten_minutes(self, user):
+    def ten_minutes(self, _):
         return self.timegoesby(10)
 
-    def one_hour(self, user):
+    def one_hour(self, _):
         return self.timegoesby(60)
 
     def timegoesby(self, minutes):
@@ -144,6 +153,13 @@ class Director(object):
         self.scene.inventory.add_item(charges, name)
         self.record_scene()
         return f"{charges} {name} added to the scene"
+
+    def log(self, channel_name, messages, prefix):
+        user_text = writer.stick_messages_together(messages, [prefix])
+        page = writer.compile_log(self.find_characters(), self.scene.description(), user_text)
+        adventure = writer.normalize_entity_name(channel_name).capitalize()
+        image = self.scene.location.image_url()
+        return adventure, page, image
 
 
 class Scene(object):
@@ -224,7 +240,7 @@ class Inspiration(object):
 
     def __init__(self, name):
         self.entity_data = find_entity_by_name(name)
-        self.name = normalize_entity_name(self.entity_data.name)
+        self.name = writer.normalize_entity_name(self.entity_data.name)
 
 
 class Calendar(Inspiration):
@@ -300,8 +316,11 @@ class Inventory(object):
         self.items = []
 
     def add_item(self, charges, name):
-        item = InventoryItem(name)
-        item.charges = charges
+        candidate = InventoryItem(name)
+        item = next((x for x in self.items if x.entity_data.iri == candidate.entity_data.iri), None)
+        if item is None:
+            item = InventoryItem(name)
+        item.charges += charges
         self.items.append(item)
 
     def sunrise(self, num_sunrises):
@@ -325,7 +344,7 @@ class InventoryItem(Inspiration):
         f = self.parse_charging_formula()
         dices = f[2].split("w")
         dices.append(1)  # in case the 1 was omitted
-        change = sum([randint(1, int(dices[1])) for n in range(int(dices[0]))])
+        change = sum([randint(1, int(dices[1])) for _ in range(int(dices[0]))])
         if f[0] == "-":
             self.charges -= change
         else:
@@ -480,7 +499,8 @@ emojis = {
     "\U0001F39F": "gather",
     "\U0001F550": "one_minute",
     "\U0001F51F": "ten_minutes",
-    u"\u26FA": "one_hour"
+    u"\u26FA": "one_hour",
+    u"\U0001F6D6": "disband"
 }
 
 
@@ -489,7 +509,7 @@ def find_entity_by_name(to_find):
     found = None
 
     for f in ONTOLOGY.individuals():
-        data = normalize_entity_name(f.name)
+        data = writer.normalize_entity_name(f.name)
 
         m = SequenceMatcher(None, data, to_find).ratio()
 
