@@ -2,8 +2,7 @@ from nextcord.ext import commands
 from nextcord import Embed
 from decouple import config
 
-import InspiringCompanion.writer
-from InspiringCompanion import models, writer
+from InspiringCompanion.models import Director, emojis
 
 BOT_URL = config('BOT_URL')
 ICON_URL = config('ICON_URL')
@@ -11,7 +10,7 @@ BOT_TOKEN = config('BOT_TOKEN')
 DATABASE = config('DATABASE', default=':memory:')
 
 client = commands.Bot(command_prefix='!')  # put your own prefix here
-director = models.Director(database=DATABASE)
+director = Director(database=DATABASE)
 
 
 @client.event
@@ -32,8 +31,8 @@ async def inspiration(discord_context):
     """
     message = await discord_context.send(director.inspiration())
     reactions = ["sunrise", "one_minute", "ten_minutes", "one_hour"]
-    for e in models.emojis:
-        if models.emojis[e] in reactions:
+    for e in emojis:
+        if emojis[e] in reactions:
             await message.add_reaction(e)
     pass
 
@@ -46,8 +45,8 @@ async def gather(discord_context):
     Whoever wants to join clicks on the ticket reaction.
     """
     message = await discord_context.send(f"{director.inspiration()}\nThe adventure's call lingers in the air...")
-    for e in models.emojis:
-        if models.emojis[e] in ["gather", "disband"]:
+    for e in emojis:
+        if emojis[e] in ["gather", "disband"]:
             await message.add_reaction(e)
     pass
 
@@ -120,16 +119,16 @@ async def timegoesby(discord_context, *arg):
 
 @client.command()
 @director.action
-async def log(discord_context):
+async def log(ctx):
     """
     Create a summary of the current scene
     It uses the last messages from the user issuing the command
     """
     messages = []
-    async for m in discord_context.channel.history(limit=20, oldest_first=False):
+    async for m in ctx.channel.history(limit=20, oldest_first=False):
         messages.append(m)
 
-    adventure, page, image = director.log(discord_context.channel.name, messages, await client.get_prefix(discord_context.message))
+    adventure, page, image = director.log(ctx.channel.name, messages, await client.get_prefix(ctx.message))
 
     nice_log_page = Embed(title=adventure, color=0x109319)
     nice_log_page.set_author(name="Inspiring Companion", url=BOT_URL, icon_url=ICON_URL)
@@ -137,7 +136,7 @@ async def log(discord_context):
     if image is not None:
         nice_log_page.set_thumbnail(url=image)
 
-    await discord_context.send(embed=nice_log_page)
+    await ctx.send(embed=nice_log_page)
 
     pass
 
@@ -145,7 +144,7 @@ async def log(discord_context):
 @client.event
 @director.action
 async def on_reaction_add(reaction, user):
-    if user.bot or reaction.emoji not in models.emojis.keys():
+    if user.bot or reaction.emoji not in emojis.keys():
         return
 
     channel = client.get_channel(director.channel)
