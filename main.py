@@ -130,7 +130,6 @@ async def log(discord_context):
     user_text = await writer.stick_messages_together(discord_context.channel, [discord_context.prefix])
 
     page = writer.compile_log(director.find_characters(), director.scene.description(), user_text)
-
     nice_log_page = Embed(title=adventure, color=0x109319)
     nice_log_page.set_author(name="Inspiring Companion", url=BOT_URL, icon_url=ICON_URL)
     nice_log_page.add_field(name=director.scene.calendar.description(), value=page, inline=True)

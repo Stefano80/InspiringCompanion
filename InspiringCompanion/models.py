@@ -344,10 +344,10 @@ class Weather(Inspiration):
         self.precipitation = self.entity_data.has_precipitation
 
     def seed(self, data):
-        self.temperature = data[0]
-        self.wind_strength = data[1]
-        self.wind_direction = data[2]
-        self.precipitation = data[3]
+        self.wind_strength = data[0]
+        self.wind_direction = data[1]
+        self.precipitation = data[2]
+        self.temperature = data[3]
 
     def sunrise(self, num_sunrises):
         for n in range(min(num_sunrises, 20)):
