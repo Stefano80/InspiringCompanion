@@ -43,9 +43,9 @@ jobs:
       - uses: papeloto/action-zip@v1
         with:
           files: InspiringCompanion/ resources/inspiration.owl main.py
-          dest: InspiringCompanion.zip
+          dest: result.zip
           recursive: True
       - uses: actions/upload-artifact@v1
         with:
           name: InspiringCompanionArtifact
-          path: ${{ github.workspace }}
+          path: ${{ github.workspace }}/result.zip
