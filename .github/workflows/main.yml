@@ -44,7 +44,7 @@ jobs:
         with:
           files: InspiringCompanion/ resources/inspiration.owl main.py
           dest: result.zip
-          recursive: true
+          recursive: false
       - uses: actions/upload-artifact@v1
         with:
           name: InspiringCompanionArtifact
