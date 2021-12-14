@@ -6,6 +6,7 @@ from InspiringCompanion import models
 from random import seed
 from unittest.mock import Mock
 from datetime import datetime, timedelta
+from . import utils
 
 
 class TestClock(unittest.TestCase):
@@ -25,7 +26,7 @@ class TestClock(unittest.TestCase):
         self.assertIsNotNone(clock)
         self.assertEqual(timedelta(hours=8), clock.time)
         clock.add_timer("fireball", time_left=60)
-        self.assertEqual(timedelta(hours=9),  clock.timers["fireball"])
+        self.assertEqual(timedelta(hours=9), clock.timers["fireball"])
         p = clock.time_goes_by(24 * 60)
         self.assertEqual("fireball", p)
 
@@ -36,13 +37,7 @@ class TestClock(unittest.TestCase):
         self.assertEqual("fireball", expired)
 
     def test_table(self):
-        d = models.Director()
-        models.create_table(d.database)
-
-        mock = Mock()
-        mock.guild.id = "default_server"
-        mock.channel.id = "default_channel"
-        d.set_scene_from(mock)
+        d = utils.setup_director("default_server", "default_channel")
         d.record_scene()
 
         select = f"SELECT * FROM Timers WHERE server_id = 'default_server' AND channel_id = 'default_channel'"
@@ -51,7 +46,7 @@ class TestClock(unittest.TestCase):
         self.assertEqual("default_server", row[0])
         self.assertEqual("default_channel", row[1])
         self.assertEqual("midnight", row[2])
-        self.assertEqual(24*60, row[3])
+        self.assertEqual(24 * 60, row[3])
 
 
 class TestInspiration(unittest.TestCase):
@@ -176,13 +171,7 @@ class TestScene(unittest.TestCase):
         self.assertEqual('Elturel', row[2])
 
     def test_set_scene(self):
-        mock = Mock()
-        mock.guild.id = "default"
-        mock.channel.id = "default"
-
-        director = models.Director()
-        models.create_table(director.database)
-        director.set_scene_from(mock)
+        director = utils.setup_director("default", "default")
         self.assertEqual(1, director.scene.calendar.day)
 
     def test_scene_description(self):
@@ -193,7 +182,6 @@ class TestScene(unittest.TestCase):
 
 class TestLocation(unittest.TestCase):
     def test_image_url(self):
-
         data = '<meta property="og:image" content="https://static.wikia.nocookie.net/forgottenrealms/images/3/35' \
                '/Hellrider_ward_token.jpg/revision/latest?cb=20190919135150"/> '
 
@@ -217,15 +205,18 @@ class TestItems(unittest.TestCase):
             self.assertLess(10, wand.charges)
             self.assertLess(wand.charges, 15)
 
+        wand.entity_data.has_charging_formula = "1/0w20"
+        for n in range(20):
+            wand.charges = n
+            wand.recharge()
+            self.assertEqual(n, wand.charges)
+
     def testSceneIntegration(self):
         mock = Mock()
         mock.guild.id = "default"
         mock.channel.id = "default"
 
-        director = models.Director()
-        models.create_table(director.database)
-
-        director.set_scene_from(mock)
+        director = utils.setup_director(mock.guild.id, mock.channel.id)
         director.additem(20, "ration")
         self.assertEqual(20, director.scene.inventory.items[0].charges)
 
@@ -233,19 +224,14 @@ class TestItems(unittest.TestCase):
         self.assertEqual(20, director.scene.inventory.items[0].charges)
 
         director.additem(20, "ration")
-        director.additem(20, "ration")
-        director.additem(20, "ration")
 
         director.set_scene_from(mock)
-        self.assertEqual(20, director.scene.inventory.items[0].charges)
+        self.assertEqual(40, director.scene.inventory.items[0].charges)
         self.assertEqual(1, len(director.scene.inventory.items))
 
         director.sunrise(None, 1)
-        self.assertEqual(19, director.scene.inventory.items[0].charges)
+        self.assertEqual(39, director.scene.inventory.items[0].charges)
         self.assertEqual(1, len(director.scene.inventory.items))
 
-
-
-
-
-
+        director.additem(-10, "ration")
+        self.assertEqual(29, director.scene.inventory.items[0].charges)

@@ -30,7 +30,7 @@ async def inspiration(discord_context):
     """
     Gives some inspiration about the current scene
     """
-    message = await discord_context.send(director.short_log())
+    message = await discord_context.send(director.inspiration())
     reactions = ["sunrise", "one_minute", "ten_minutes", "one_hour"]
     for e in models.emojis:
         if models.emojis[e] in reactions:
@@ -45,9 +45,9 @@ async def gather(discord_context):
     Gather the party for a new adventure
     Whoever wants to join clicks on the ticket reaction.
     """
-    message = await discord_context.send(f"{director.short_log()}\nThe adventure's call lingers in the air...")
+    message = await discord_context.send(f"{director.inspiration()}\nThe adventure's call lingers in the air...")
     for e in models.emojis:
-        if models.emojis[e] == "gather":
+        if models.emojis[e] in ["gather", "disband"]:
             await message.add_reaction(e)
     pass
 
@@ -125,19 +125,19 @@ async def log(discord_context):
     Create a summary of the current scene
     It uses the last messages from the user issuing the command
     """
-    adventure = InspiringCompanion.writer.normalize_entity_name(discord_context.channel.name).capitalize()
-    image = director.scene.location.image_url()
-    user_text = await writer.stick_messages_together(discord_context.channel, [discord_context.prefix])
+    messages = []
+    async for m in discord_context.channel.history(limit=20, oldest_first=False):
+        messages.append(m)
 
-    page = writer.compile_log(director.find_characters(), director.scene.description(), user_text)
+    adventure, page, image = director.log(discord_context.channel.name, messages, await client.get_prefix(discord_context.message))
+
     nice_log_page = Embed(title=adventure, color=0x109319)
     nice_log_page.set_author(name="Inspiring Companion", url=BOT_URL, icon_url=ICON_URL)
     nice_log_page.add_field(name=director.scene.calendar.description(), value=page, inline=True)
-
     if image is not None:
         nice_log_page.set_thumbnail(url=image)
 
-    message = await discord_context.send(embed=nice_log_page)
+    await discord_context.send(embed=nice_log_page)
 
     pass
 

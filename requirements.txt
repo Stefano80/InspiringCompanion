@@ -7,3 +7,4 @@ numpy~=1.21.4
 nextcord~=2.0.0a3
 python-decouple~=3.5
 validators~=0.18.2
+pytest-cov~=3.0

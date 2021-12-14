@@ -49,6 +49,12 @@ class Archivist(object):
         rows = self.database.execute(select).fetchall()
         return {r[0] for r in rows}
 
+    def delete_characters(self):
+        delete = f"DELETE FROM Characters WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
+        self.database.cursor().execute(delete)
+        self.database.commit()
+        pass
+
     def find_timers(self):
         select = f"SELECT name, minutes FROM Timers WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
         return self.database.cursor().execute(select).fetchall()
@@ -65,7 +71,7 @@ class Archivist(object):
         return self.database.cursor().execute(select).fetchall()
 
     def delete_items(self):
-        delete = f"DELETE FROM Timers WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
+        delete = f"DELETE FROM Items WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
         self.database.cursor().execute(delete)
         self.database.commit()
         pass
