@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 
 import InspiringCompanion.models
@@ -20,9 +21,51 @@ class TestArchivist(unittest.TestCase):
 
 class TestDirector(unittest.TestCase):
 
+    def test_log(self):
+        mock_i = Mock()
+        mock_i.content = "log"
+        mock_i.author.display_name = "Me"
+        mock_i.bot = False
+        mock_you = Mock()
+        mock_you.content = "You"
+        mock_you.author.display_name = "Me"
+        mock_you.author.bot = False
+
+        director = utils.setup_director("default_server", "default_channel")
+        director.log("default_channel", [mock_i, mock_you])
+
+    def test_gather(self):
+        director = utils.setup_director("default_server", "default_channel")
+        mock = Mock()
+        mock.id = "A user"
+        mock.display_name = "A character"
+        director.gather(mock)
+        chars = director.find_characters()
+        self.assertEqual({"A character"}, chars)
+
+    def test_action(self):
+        director = utils.setup_director("default", "default")
+
+        async def test_function(_):
+            return 1
+
+        decorator = director.action(test_function)
+        decorated = decorator(test_function)
+
+        self.assertEqual(decorator.__name__, "test_function")
+        self.assertTrue(asyncio.iscoroutine(decorated))
+
     def test_director(self):
         director = utils.setup_director("default", "default")
         self.assertEqual("Elturel", director.scene.location.name)
+
+    def test_reaction(self):
+        director = utils.setup_director("default", "default")
+        rev = {value: key for (key, value) in models.emojis.items()}
+        self.assertEqual("It is 8:01:00.", director.reaction(rev["one_minute"], None))
+        self.assertEqual("It is 8:11:00.", director.reaction(rev["ten_minutes"], None))
+        self.assertEqual("It is 9:11:00.", director.reaction(rev["one_hour"], None))
+        self.assertEqual("There is nothing to see here", director.reaction(rev["disband"], None))
 
     def test_database_commit(self):
         director = utils.setup_director("default02", "default02")
@@ -97,7 +140,7 @@ class TestDirector(unittest.TestCase):
 
         self.assertEqual({"Dorn", "Alwen Moonruby"}, director.find_characters())
 
-    def test_addtriger(self):
+    def test_addtrigger(self):
         director = utils.setup_director("default_server", "default_channel")
 
         director.addtimer(60, "fireball")
@@ -120,6 +163,18 @@ class TestDirector(unittest.TestCase):
         director.set_scene_from(mock)
         director.timegoesby(60)
         self.assertEqual(datetime.timedelta(hours=10), director.scene.clock.time)
+
+    def test_mypc(self):
+        director = utils.setup_director("default_server", "default_channel")
+        director.record_character("Alwen Moonruby", "default_user")
+        mock = Mock()
+        mock.display_name = "Alwen Moonruby"
+        mock.id = "default_user"
+        director.mypc(mock, 'ddb', '19323298')
+        select = f"SELECT provider, provider_id FROM Characters WHERE name = 'Alwen Moonruby'"
+        row = director.database.cursor().execute(select).fetchone()
+        self.assertEqual('ddb', row[0])
+        self.assertEqual('19323298', row[1])
 
 
 class TestWriter(unittest.TestCase):
@@ -156,23 +211,29 @@ class TestWriter(unittest.TestCase):
     def test_stick_messages(self):
         mock_i = Mock()
         mock_i.content = "log"
-        mock_i.author = "Me"
+        mock_i.author.display_name = "Me"
+        mock_i.author.bot = False
+
         mock_you = Mock()
         mock_you.content = "You"
-        mock_you.author = "Me"
+        mock_you.author.display_name = "Me"
+        mock_you.author.bot = False
         mock_he = Mock()
         mock_he.content = "He"
-        mock_he.author = "Me"
+        mock_he.author.display_name = "Me"
+        mock_he.author.bot = False
 
-        res = writer.stick_messages_together([mock_i, mock_you, mock_he], "")
+        res = writer.stick_messages_together([mock_i, mock_you, mock_he])
         self.assertEqual("He You ", res)
 
-        mock_he.author = "he"
-        res = writer.stick_messages_together([mock_i, mock_you, mock_he], "")
-        self.assertEqual("You ", res)
+        mock_he.author.display_name = "he"
+        mock_he.author.bot = False
+        res = writer.stick_messages_together([mock_i, mock_you, mock_he])
+        self.assertEqual("He You ", res)
 
-        mock_you.content = "#You"
-        mock_he.author = "Me"
+        mock_you.content = "§You"
+        mock_he.author.display_name = "Me"
+        mock_he.author.bot = False
 
-        res = writer.stick_messages_together([mock_i, mock_you, mock_he], "#")
+        res = writer.stick_messages_together([mock_i, mock_you, mock_he])
         self.assertEqual("He ", res)

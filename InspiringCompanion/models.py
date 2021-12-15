@@ -1,16 +1,15 @@
 from difflib import SequenceMatcher
-
+from sqlite3 import connect
+from functools import wraps
 from owlready2 import get_ontology
 from random import randint
 from numpy import clip
 from datetime import timedelta
-import sqlite3
-import functools
 from bs4 import BeautifulSoup
-import requests
-import validators
 from collections import OrderedDict
 from decouple import config
+from requests import get
+from validators import url
 
 from InspiringCompanion.archivist import Archivist
 from InspiringCompanion import writer
@@ -29,10 +28,10 @@ class Director(object):
         self.channel = None
         self.server = None
         self.scene = None
-        self.database = sqlite3.connect(database)
+        self.database = connect(database)
 
     def action(self, func):
-        @functools.wraps(func)
+        @wraps(func)
         async def decorator(ctx, *args, **kwargs):
             self.set_scene_from(ctx.message)
             return await func(ctx, *args, **kwargs)
@@ -61,6 +60,9 @@ class Director(object):
     def record_character(self, name, user_id):
         return self.call_archivist().record_character(name, user_id)
 
+    def record_my_pc(self, display_name, user_id, provider, provider_id):
+        return self.call_archivist().record_my_pc(display_name, user_id, provider, provider_id)
+
     def find_characters(self):
         return self.call_archivist().find_characters()
 
@@ -75,9 +77,6 @@ class Director(object):
 
     def find_items(self):
         return self.call_archivist().find_items()
-
-    def delete_items(self):
-        return self.call_archivist().delete_items()
 
     def set_scene_from(self, message):
         self.server = message.guild.id
@@ -125,6 +124,10 @@ class Director(object):
         self.delete_characters()
         return f"There is nothing to see here"
 
+    def mypc(self, user, provider, provider_id):
+        self.record_my_pc(user.display_name, user.id, provider, provider_id)
+        return f"{user.display_name} assigned.\nhttps://{provider}.ac/characters/{provider_id}/"
+
     def one_minute(self, _):
         return self.timegoesby(1)
 
@@ -154,8 +157,8 @@ class Director(object):
         self.record_scene()
         return f"{charges} {name} added to the scene"
 
-    def log(self, channel_name, messages, prefix):
-        user_text = writer.stick_messages_together(messages, [prefix])
+    def log(self, channel_name, messages,):
+        user_text = writer.stick_messages_together(messages)
         page = writer.compile_log(self.find_characters(), self.scene.description(), user_text)
         adventure = writer.normalize_entity_name(channel_name).capitalize()
         image = self.scene.location.image_url()
@@ -422,11 +425,11 @@ class Location(Inspiration):
 
     def image_url(self, html=None):
 
-        if not validators.url(self.entity_data.iri):
+        if not url(self.entity_data.iri):
             return None
 
         if html is None:
-            html = requests.get(self.entity_data.iri).text
+            html = get(self.entity_data.iri).text
 
         return BeautifulSoup(html, "html.parser").findAll("meta", property="og:image")[0]["content"]
 
@@ -456,7 +459,9 @@ def create_table(con):
                                         server_id ui_text NOT NULL,
                                         channel_id ui_text NOT NULL,
                                         name ui_text NOT NULL,
-                                        user_id ui_text NOT NULL); """
+                                        user_id ui_text NOT NULL,
+                                        provider ui_text,
+                                        provider_id ui_text); """
 
     sql_characters_index = f"CREATE UNIQUE INDEX idx_characters ON Characters (name, user_id)"
 

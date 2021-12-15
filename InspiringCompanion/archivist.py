@@ -44,6 +44,18 @@ class Archivist(object):
 
         pass
 
+    def record_my_pc(self, name, user_id, provider, provider_id):
+        select = f"SELECT channel_id FROM Characters WHERE " \
+                 f"server_id = '{self.server}' AND name = '{name}' AND user_id = '{user_id}'"
+
+        channel = self.database.execute(select).fetchone()[0]
+
+        upsert = f"INSERT OR REPLACE INTO Characters (server_id, channel_id, name, user_id, provider, provider_id) " \
+                 f"VALUES( '{self.server}', '{channel}', '{name}', '{user_id}', '{provider}' ,'{provider_id}');"
+
+        self.database.cursor().execute(upsert)
+        self.database.commit()
+
     def find_characters(self):
         select = f"SELECT name FROM Characters WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
         rows = self.database.execute(select).fetchall()
@@ -69,12 +81,6 @@ class Archivist(object):
         select = f"SELECT name, quantity, max_quantity, next_recharge FROM Items WHERE server_id = '{self.server}' " \
                  f"AND channel_id = '{self.channel}' "
         return self.database.cursor().execute(select).fetchall()
-
-    def delete_items(self):
-        delete = f"DELETE FROM Items WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
-        self.database.cursor().execute(delete)
-        self.database.commit()
-        pass
 
     def find_scene(self):
         select = f"SELECT * FROM Scenes WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
