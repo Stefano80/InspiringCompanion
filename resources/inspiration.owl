@@ -204,13 +204,19 @@
   <has_climate rdf:resource="#SwordCoastClimate"/>
 </City>
 
-<City rdf:about="#Daggerford">
+<City rdf:about="https://forgottenrealms.fandom.com/wiki/Daggerford">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
   <is_located_in rdf:resource="#TheNorth"/>
   <has_climate rdf:resource="#NorthClimate"/>
 </City>
 
-<City rdf:about="#Secomber">
+<City rdf:about="https://forgottenrealms.fandom.com/wiki/Julkoun">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+  <is_located_in rdf:resource="#TheNorth"/>
+  <has_climate rdf:resource="#NorthClimate"/>
+</City>
+
+<City rdf:about="https://forgottenrealms.fandom.com/wiki/Secomber">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
   <is_located_in rdf:resource="#TheNorth"/>
   <has_climate rdf:resource="#NorthClimate"/>

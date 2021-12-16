@@ -48,6 +48,13 @@ class TestClock(unittest.TestCase):
         self.assertEqual("midnight", row[2])
         self.assertEqual(24 * 60, row[3])
 
+    def test_reactions(self):
+        d = utils.setup_director("default_server", "default_channel")
+
+        self.assertEqual("It is 8:01:00.", d.one_minute(None))
+        self.assertEqual("It is 8:11:00.", d.ten_minutes(None))
+        self.assertEqual("It is 9:11:00.", d.one_hour(None))
+
 
 class TestInspiration(unittest.TestCase):
     def test_init(self):

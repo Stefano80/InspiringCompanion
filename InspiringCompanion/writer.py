@@ -19,20 +19,13 @@ def compile_log(characters, scene_description, user_text):
     return f"{participants}{scene_description} {user_text}"
 
 
-def stick_messages_together(messages, ignore):
+def stick_messages_together(messages):
     user_text = ""
+    ignore = ["!", "§"]
 
-    count = 0
-    for m in messages:
-        count += 1
-        if count == 1:
-            current_author = m.author
+    for m in messages[1:]:
+        if len(m.content) == 0 or m.content[0] in ignore or m.author.bot:
             continue
-        if m.author != current_author:
-            break
-        if m.content[0] in ignore:
-            continue
-
         user_text = f"{m.content} {user_text}"
 
     return user_text
