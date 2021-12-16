@@ -210,6 +210,12 @@
   <has_climate rdf:resource="#NorthClimate"/>
 </City>
 
+<City rdf:about="https://forgottenrealms.fandom.com/wiki/Julkoun">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+  <is_located_in rdf:resource="#TheNorth"/>
+  <has_climate rdf:resource="#NorthClimate"/>
+</City>
+
 <City rdf:about="https://forgottenrealms.fandom.com/wiki/Secomber">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
   <is_located_in rdf:resource="#TheNorth"/>
