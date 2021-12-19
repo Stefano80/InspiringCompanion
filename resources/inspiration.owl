@@ -16,6 +16,15 @@
 
 <owl:ObjectProperty rdf:about="#has_climate">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain>
+  <owl:Class>
+  <owl:unionOf rdf:parseType="Collection">
+  <owl:Class rdf:about="#GeographicalEntity"/>
+  <owl:Class rdf:about="#Season"/>
+  </owl:unionOf>
+  </owl:Class>
+</rdfs:domain>
+
   <rdfs:domain rdf:resource="#GeographicalEntity"/>
   <rdfs:range rdf:resource="#Climate"/>
 </owl:ObjectProperty>
@@ -24,6 +33,18 @@
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#InventoryItem"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#everyone_has_to_recharge">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain rdf:resource="#InventoryItem"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#is_bulk_item">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain rdf:resource="#InventoryItem"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#has_wind_strength">
@@ -71,9 +92,22 @@
 
 <owl:ObjectProperty rdf:about="#contains">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
-<rdfs:domain rdf:resource="#Calendar"/>
+<rdfs:domain>
+<owl:Class>
+<owl:unionOf rdf:parseType="Collection">
+<owl:Class rdf:about="#Calendar"/>
+</owl:unionOf>
+</owl:Class>
+</rdfs:domain>
 <rdfs:range rdf:resource="#PartOfTheYear"/>
 </owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#is_in_season">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+  <rdfs:domain rdf:resource="#PartOfTheYear"/>
+  <rdfs:range rdf:resource="#Season"/>
+</owl:ObjectProperty>
+
 
 <owl:ObjectProperty rdf:about="#starts_with">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
@@ -124,6 +158,10 @@
   <rdfs:subClassOf rdf:resource="#PartOfTheYear"/>
 </owl:Class>
 
+<owl:Class rdf:about="#Season">
+  <rdfs:subClassOf rdf:resource="#PartOfTheYear"/>
+</owl:Class>
+
 <Region rdf:about="#TheNorth">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 </Region>
@@ -150,6 +188,39 @@
   <has_precipitation rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">60</has_precipitation>
 </Climate>
 
+<Climate rdf:about="#WinterClimate">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+  <has_wind_strength rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">-5</has_wind_strength>
+  <has_temperature rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">-5</has_temperature>
+  <has_clouds rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</has_clouds>
+  <has_precipitation rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</has_precipitation>
+</Climate>
+
+<Climate rdf:about="#SpringClimate">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+  <has_wind_strength rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</has_wind_strength>
+  <has_temperature rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</has_temperature>
+  <has_clouds rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</has_clouds>
+  <has_precipitation rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">-10</has_precipitation>
+</Climate>
+
+<Climate rdf:about="#AutumnClimate">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+  <has_wind_strength rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">10</has_wind_strength>
+  <has_temperature rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</has_temperature>
+  <has_clouds rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">5</has_clouds>
+  <has_precipitation rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">5</has_precipitation>
+</Climate>
+
+<Climate rdf:about="#SummerClimate">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+  <has_wind_strength rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">-10</has_wind_strength>
+  <has_temperature rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">5</has_temperature>
+  <has_clouds rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">-5</has_clouds>
+  <has_precipitation rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">-5</has_precipitation>
+</Climate>
+
+
 <Climate rdf:about="#DefaultClimate">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
   <has_wind_strength rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</has_wind_strength>
@@ -159,19 +230,33 @@
   <has_precipitation rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</has_precipitation>
 </Climate>
 
-<InventoryItem rdf:about="https://forgottenrealms.fandom.com/wiki/Ration">
+<InventoryItem rdf:about="https://forgottenrealms.fandom.com/wiki/Gold">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
-<has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">-1/1w1</has_charging_formula>
+<is_bulk_item rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_bulk_item>
 </InventoryItem>
 
-<InventoryItem rdf:about="https://forgottenrealms.fandom.com/wiki/https://forgottenrealms.fandom.com/wiki/Wand_of_fireballs">
+<InventoryItem rdf:about="https://forgottenrealms.fandom.com/wiki/Ration">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
-<has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">1/1w4</has_charging_formula>
+<has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">-1/1d1</has_charging_formula>
+<everyone_has_to_recharge rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</everyone_has_to_recharge>
+<is_bulk_item rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_bulk_item>
+</InventoryItem>
+
+<InventoryItem rdf:about="https://forgottenrealms.fandom.com/wiki/Water">
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+<has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">-1/1d1</has_charging_formula>
+<everyone_has_to_recharge rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</everyone_has_to_recharge>
+<is_bulk_item rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_bulk_item>
+</InventoryItem>
+
+<InventoryItem rdf:about="https://forgottenrealms.fandom.com/wiki/Wand_of_fireballs">
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+<has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">1/1d6+1</has_charging_formula>
 </InventoryItem>
 
 <InventoryItem rdf:about="https://forgottenrealms.fandom.com/wiki/Potion_of_healing">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
-<has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">1/0w1</has_charging_formula>
+<has_charging_formula rdf:datatype="http://www.w3.org/2001/XMLSchema#string">1/0d1</has_charging_formula>
 </InventoryItem>
 
 <City rdf:about="https://forgottenrealms.fandom.com/wiki/Baldur%27s_Gate">
@@ -248,12 +333,14 @@
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
   <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
   <follows rdf:resource="#Nightal"/>
+  <is_in_season rdf:resource="https://en.wikipedia.org/wiki/Winter"/>
 </Month>
 
 <PartOfTheYear rdf:about="#Midwinter">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
   <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</has_days>
   <follows rdf:resource="#Hammer"/>
+  <is_in_season rdf:resource="https://en.wikipedia.org/wiki/Winter"/>
 </PartOfTheYear>
 
 
@@ -261,85 +348,123 @@
     <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
     <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
     <follows rdf:resource="#Midwinter"/>
+    <is_in_season rdf:resource="https://en.wikipedia.org/wiki/Winter"/>
 </Month>
 
 <Month rdf:about="#Ches">
-   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
-   <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
-   <follows rdf:resource="#Alturiak"/>
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+<has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
+<follows rdf:resource="#Alturiak"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Spring"/>
 </Month>
 
 <Month rdf:about="#Tarsakh">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
-  <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
-     <follows rdf:resource="#Ches"/>
+<has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
+ <follows rdf:resource="#Ches"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Spring"/>
 </Month>
 
 <PartOfTheYear rdf:about="#Greengrass">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
-  <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</has_days>
-  <follows rdf:resource="#Tarsakh"/>
+<has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</has_days>
+<follows rdf:resource="#Tarsakh"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Spring"/>
 </PartOfTheYear>
 
 <Month rdf:about="#Mirtul">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
-  <follows rdf:resource="#Greengrass"/>
-
+<follows rdf:resource="#Greengrass"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Spring"/>
 </Month>
 
 <Month rdf:about="#Kythorn">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
 <follows rdf:resource="#Mirtul"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Summer"/>
 </Month>
 
 <Month rdf:about="#Flamerule">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
 <follows rdf:resource="#Kythorn"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Summer"/>
 </Month>
 
 <PartOfTheYear rdf:about="#Midsummer">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</has_days>
 <follows rdf:resource="#Flamerule"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Summer"/>
 </PartOfTheYear>
 
 <Month rdf:about="#Eleasis">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
 <follows rdf:resource="#Midsummer"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Summer"/>
 </Month>
 
 <Month rdf:about="#Eleint">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
 <follows rdf:resource="#Eleasis"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Autumn"/>
 </Month>
 
 <PartOfTheYear rdf:about="#Highharvestide">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</has_days>
 <follows rdf:resource="#Eleint"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Autumn"/>
 </PartOfTheYear>
 
 <Month rdf:about="#Marpenoth">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
 <follows rdf:resource="#Highharvestide"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Autumn"/>
 </Month>
 
 <Month rdf:about="#Uktar">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
 <follows rdf:resource="#Marpenoth"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Autumn"/>
 </Month>
 
 <Month rdf:about="#Nightal">
 <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
 <has_days rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_days>
 <follows rdf:resource="#Uktar"/>
+<is_in_season rdf:resource="https://en.wikipedia.org/wiki/Winter"/>
 </Month>
+
+<Season rdf:about="https://en.wikipedia.org/wiki/Winter">
+<has_climate rdf:resource="#WinterClimate"/>
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+</Season>
+
+<Season rdf:about="https://en.wikipedia.org/wiki/Spring">
+<has_climate rdf:resource="#SpringClimate"/>
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+</Season>
+
+<Season rdf:about="https://en.wikipedia.org/wiki/Summer">
+<has_climate rdf:resource="#SummerClimate"/>
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+</Season>
+
+<Season rdf:about="https://en.wikipedia.org/wiki/Autumn">
+<has_climate rdf:resource="#AutumnClimate"/>
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+</Season>
+
+<Season rdf:about="#NeutralSeason">
+<has_climate rdf:resource="#DefaultClimate"/>
+<rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
+</Season>
 
 </rdf:RDF>

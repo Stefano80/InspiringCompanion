@@ -83,6 +83,17 @@ async def gather(discord_context):
 
 @client.command()
 @director.action
+async def dismiss(discord_context, *arg):
+    """
+    Remove a character from the adventure, e.g. !dismiss pc
+    """
+    pc = " ".join(arg)
+    await discord_context.send(director.dismiss(pc))
+    pass
+
+
+@client.command()
+@director.action
 async def moveto(discord_context, *arg):
     """
     Move the party to a new adventurous place, e.g. !moveto Elturel
@@ -110,7 +121,9 @@ async def addtimer(discord_context, *arg):
 async def additem(discord_context, *arg):
     """
     Add an item
-    The second argument is the quantity, e.g. !additem 22 ration
+    The second argument is the quantity, e.g. !additem 22 ration. For items that are bulk in nature (ration, water, gold),
+    the first number the quantity to be added to the single item in the list, for individual items (like the wand of fireballs),
+    a single item will be added with the number of charges specified by the first number
     """
     charges = int(arg[0])
     name = " ".join(arg[1:])

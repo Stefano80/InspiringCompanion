@@ -1,11 +1,15 @@
 import unittest
 
+from owlready2 import default_world
+
 import InspiringCompanion.models
 import InspiringCompanion.writer
 from InspiringCompanion import models
 from random import seed
 from unittest.mock import Mock
 from datetime import datetime, timedelta
+import rdflib
+
 from . import utils
 
 
@@ -116,6 +120,15 @@ class TestOntology(unittest.TestCase):
     def test_existence(self):
         self.assertIsNotNone(models.ONTOLOGY)
 
+    def testSeasons(self):
+        winter1 = models.find_entity_by_name("Winter")
+        winter2 = models.ONTOLOGY.search(iri="*Winter")[0]
+        winter_climate = models.ONTOLOGY.search(iri="*WinterClimate")[0]
+        hammer = models.ONTOLOGY.search(iri="*Hammer")[0]
+        self.assertEqual(winter1, winter2)
+        self.assertEqual(winter1.has_climate, winter_climate)
+        self.assertEqual(hammer.is_in_season, winter1)
+
 
 class TestFindEntityByName(unittest.TestCase):
     def test_some(self):
@@ -138,22 +151,26 @@ class TestWeather(unittest.TestCase):
         self.assertEqual(c.entity_data.has_wind_direction, c.wind_direction)
         self.assertEqual(c.entity_data.has_precipitation, c.precipitation)
 
-    def test_sunrise(self):
+    def test_seasons(self):
         c = models.Weather("North Climate")
+        neutral = models.ONTOLOGY.search(iri="*NeutralSeason")[0]
+        winter = models.ONTOLOGY.search(iri="*Winter")[0]
 
         seed(121)
         c.sunrise(1)
         self.assertEqual(4.0, c.temperature)
-        self.assertEqual("16°C", c.temperature_text())
+        self.assertEqual("16°C", c.temperature_text(neutral))
+        self.assertEqual("11°C", c.temperature_text(winter))
 
         self.assertEqual(4.0, c.wind_strength)
-        self.assertEqual("weak winds", c.wind_strength_text())
+        self.assertEqual("weak winds", c.wind_strength_text(neutral))
 
         self.assertEqual(104.0, c.wind_direction)
-        self.assertEqual("from the west", c.wind_direction_text())
+        self.assertEqual("from the west", c.wind_direction_text(neutral))
 
         self.assertEqual(35.0, c.precipitation)
-        self.assertEqual("is cloudy", c.precipitation_text())
+        self.assertEqual("is cloudy", c.precipitation_text(neutral))
+        self.assertEqual("rains", c.precipitation_text(winter))
 
 
 class TestScene(unittest.TestCase):
@@ -186,6 +203,16 @@ class TestScene(unittest.TestCase):
         self.assertIsNotNone(scene.description())
         self.assertTrue("We are in Elturel" in scene.description())
 
+    def test_seasons(self):
+        director = utils.setup_director("default", "default")
+        self.assertEqual(models.ONTOLOGY.search(iri="*Winter")[0], director.scene.calendar.season)
+        director.scene.sunrise(65)
+        self.assertEqual(models.ONTOLOGY.search(iri="*Spring")[0], director.scene.calendar.season)
+
+
+
+
+
 
 class TestLocation(unittest.TestCase):
     def test_image_url(self):
@@ -197,26 +224,36 @@ class TestLocation(unittest.TestCase):
 
 
 class TestItems(unittest.TestCase):
+
     def testCharging(self):
         ration = models.InventoryItem("ration")
         ration.charges = 1
         self.assertIsNotNone(ration.entity_data)
-        self.assertEqual(("-", "1", "1w1"), ration.parse_charging_formula())
+        self.assertEqual(("-", "1", "1d1"), ration.parse_charging_formula())
         ration.recharge()
         self.assertEqual(0, ration.charges)
 
         wand = models.InventoryItem("wand of fireballs")
-        for n in range(10):
+        for n in range(100):
             wand.charges = 10
             wand.recharge()
-            self.assertLess(10, wand.charges)
-            self.assertLess(wand.charges, 15)
+            self.assertLess(wand.charges, 18)
+            self.assertLess(11, wand.charges)
 
-        wand.entity_data.has_charging_formula = "1/0w20"
+        wand.entity_data.has_charging_formula = "1/0d20"
         for n in range(20):
             wand.charges = n
             wand.recharge()
             self.assertEqual(n, wand.charges)
+
+        wand.charges = 0
+        wand.entity_data.has_charging_formula = "1/0d20+1"
+        wand.recharge()
+        self.assertEqual(1, wand.charges)
+
+        wand.entity_data.has_charging_formula = "1/5d20+10000"
+        wand.recharge()
+        self.assertLess(10000, wand.charges)
 
     def testSceneIntegration(self):
         mock = Mock()
@@ -225,20 +262,24 @@ class TestItems(unittest.TestCase):
 
         director = utils.setup_director(mock.guild.id, mock.channel.id)
         director.additem(20, "ration")
+
         self.assertEqual(20, director.scene.inventory.items[0].charges)
 
         director.set_scene_from(mock)
         self.assertEqual(20, director.scene.inventory.items[0].charges)
 
         director.additem(20, "ration")
+        self.assertEqual(40, director.scene.inventory.items[0].charges)
 
         director.set_scene_from(mock)
         self.assertEqual(40, director.scene.inventory.items[0].charges)
         self.assertEqual(1, len(director.scene.inventory.items))
 
+        director.scene.inventory.items[0].entity_data.everyone_has_to_recharge = False
         director.sunrise(None, 1)
         self.assertEqual(39, director.scene.inventory.items[0].charges)
         self.assertEqual(1, len(director.scene.inventory.items))
 
         director.additem(-10, "ration")
         self.assertEqual(29, director.scene.inventory.items[0].charges)
+        director.scene.inventory.items[0].entity_data.everyone_has_to_recharge = True
