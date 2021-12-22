@@ -1,14 +1,11 @@
 import unittest
 
-from owlready2 import default_world
-
 import InspiringCompanion.models
 import InspiringCompanion.writer
 from InspiringCompanion import models
 from random import seed
 from unittest.mock import Mock
-from datetime import datetime, timedelta
-import rdflib
+from datetime import timedelta
 
 from . import utils
 
