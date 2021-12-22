@@ -18,3 +18,12 @@ def add_column(ddl, database, table):
     c.cursor().execute(new_column)
     c.commit()
     c.close()
+
+
+def rename_column(database, table, old, new):
+    c = sqlite3.connect(database)
+    new_column = f"ALTER TABLE {table} RENAME COLUMN '{old}' TO '{new}'"
+
+    c.cursor().execute(new_column)
+    c.commit()
+    c.close()

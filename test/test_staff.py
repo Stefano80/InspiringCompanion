@@ -21,6 +21,93 @@ class TestArchivist(unittest.TestCase):
 
 class TestDirector(unittest.TestCase):
 
+    def testAddingItems(self):
+        director = utils.setup_director("default_server", "default_channel")
+        director.additem(13, "Wand of Fireballs")
+
+        self.assertEqual(1, len(director.scene.inventory.items))
+        mock = Mock()
+        mock.guild.id = "default_server"
+        mock.channel.id = "default_channel"
+
+        director.set_scene_from(mock)
+        director.additem(18, "Wand of Fireballs")
+        self.assertEqual(2, len(director.scene.inventory.items))
+
+        director.set_scene_from(mock)
+        self.assertEqual(2, len(director.scene.inventory.items))
+
+    def testBulkCharging(self):
+        director = utils.setup_director("default_server", "default_channel")
+        mock = Mock()
+        mock.id = "user1"
+        mock.display_name = "pc1"
+        director.gather(mock)
+        mock.id = "user2"
+        mock.display_name = "pc2"
+        director.gather(mock)
+        director.additem(1, "Ration")
+        director.scene.inventory.items[0].charges = 100
+        director.sunrise(None)
+        self.assertEqual(98, director.scene.inventory.items[0].charges)
+        mock.id = "user3"
+        mock.display_name = "pc3"
+        director.gather(mock)
+        director.sunrise(None)
+        self.assertEqual(95, director.scene.inventory.items[0].charges)
+        director.sunrise(None)
+
+        mock = Mock()
+        mock.guild.id = "default_server"
+        mock.channel.id = "default_channel"
+        director.set_scene_from(mock)
+
+        self.assertEqual(92, director.scene.inventory.items[0].charges)
+
+    def testNormalItems(self):
+        director = utils.setup_director("default_server", "default_channel")
+        director.additem(13, "Wand of Fireballs")
+
+        self.assertEqual(1, len(director.scene.inventory.items))
+        director.additem(18, "Wand of Fireballs")
+        self.assertEqual(2, len(director.scene.inventory.items))
+        director.additem(4, "Wand of Fireballs")
+        self.assertEqual(3, len(director.scene.inventory.items))
+
+        mock = Mock()
+        mock.guild.id = "default_server"
+        mock.channel.id = "default_channel"
+
+        director.set_scene_from(mock)
+        self.assertEqual(3, len(director.scene.inventory.items))
+        self.assertEqual(13, director.scene.inventory.items[0].charges)
+        self.assertEqual(18, director.scene.inventory.items[1].charges)
+        self.assertEqual(4, director.scene.inventory.items[2].charges)
+
+        director.sunrise(None)
+        self.assertEqual(3, len(director.scene.inventory.items))
+
+    def testNormalCharging(self):
+        director = utils.setup_director("default_server", "default_channel")
+        director.additem(0, "Wand of Fireballs")
+        self.assertEqual(0, director.scene.inventory.items[0].charges)
+        mock = Mock()
+        mock.guild.id = "default_server"
+        mock.channel.id = "default_channel"
+        director.set_scene_from(mock)
+
+        def f():
+            return director.scene.inventory.items[0].charges
+
+        old_charges = f()
+        self.assertEqual(0, old_charges)
+
+        for n in range(20):
+            director.sunrise(None)
+            director.set_scene_from(mock)
+            f() > old_charges
+            old_charges = f()
+
     def test_log(self):
         mock_i = Mock()
         mock_i.content = "log"
@@ -42,6 +129,20 @@ class TestDirector(unittest.TestCase):
         director.gather(mock)
         chars = director.find_characters()
         self.assertEqual({"A character"}, chars)
+
+    def test_dismiss(self):
+        director = utils.setup_director("default_server", "default_channel")
+        mock = Mock()
+        mock.id = "A user"
+        mock.display_name = "A character"
+        director.gather(mock)
+        chars = director.find_characters()
+        self.assertEqual({"A character"}, chars)
+        director.dismiss("character")
+        self.assertEqual({"A character"}, chars)
+        director.dismiss("A character")
+        chars = director.find_characters()
+        self.assertEqual(set(), chars)
 
     def test_action(self):
         director = utils.setup_director("default", "default")
@@ -65,7 +166,7 @@ class TestDirector(unittest.TestCase):
         self.assertEqual("It is 8:01:00.", director.reaction(rev["one_minute"], None))
         self.assertEqual("It is 8:11:00.", director.reaction(rev["ten_minutes"], None))
         self.assertEqual("It is 9:11:00.", director.reaction(rev["one_hour"], None))
-        self.assertEqual("There is nothing to see here", director.reaction(rev["disband"], None))
+        self.assertEqual("The party has been disbanded", director.reaction(rev["disband"], None))
 
     def test_database_commit(self):
         director = utils.setup_director("default02", "default02")
@@ -93,15 +194,16 @@ class TestDirector(unittest.TestCase):
 
     def test_moveto(self):
         director = utils.setup_director("default_server", "default_channel")
+        neutral = models.ONTOLOGY.search(iri="*NeutralSeason")[0]
 
-        t = director.scene.weather.local_temperature()
+        t = director.scene.weather.local_temperature(neutral)
         d = director.scene.calendar.day
         text = director.move_scene_to("baldurs Gate")
         self.assertEqual("We move to Baldurs Gate", text)
-        self.assertEqual(t, director.scene.weather.local_temperature())
+        self.assertEqual(t, director.scene.weather.local_temperature(neutral))
         self.assertEqual(d, director.scene.calendar.day)
         director.move_scene_to("Neverwinter")
-        self.assertEqual(t - 8, director.scene.weather.local_temperature())
+        self.assertEqual(t - 8, director.scene.weather.local_temperature(neutral))
         text = director.move_scene_to("Neverwinter")
         self.assertEqual("We already are in Neverwinter", text)
 

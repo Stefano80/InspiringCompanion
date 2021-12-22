@@ -24,13 +24,6 @@ class Archivist(object):
 
             self.database.cursor().execute(timers_upsert)
 
-        for item in scene.inventory.items:
-            items_upsert = f"INSERT OR REPLACE INTO Items (server_id, channel_id, name, quantity, max_quantity, " \
-                           f"next_recharge) VALUES( '{self.server}', '{self.channel}', '{item.entity_data.name}', " \
-                           f"'{item.charges}', NULL, NULL); "
-
-            self.database.cursor().execute(items_upsert)
-
         self.database.commit()
 
         pass
@@ -43,6 +36,38 @@ class Archivist(object):
         self.database.commit()
 
         pass
+
+    def record_item(self, quantity, name):
+        items_upsert = f"INSERT INTO Items (server_id, channel_id, name, charges, max_charges, " \
+                       f"next_recharge) VALUES( '{self.server}', '{self.channel}', '{name}', " \
+                       f"{quantity}, NULL, NULL); "
+
+        self.database.cursor().execute(items_upsert)
+        self.database.commit()
+
+        pass
+
+    def record_bulk(self, quantity, name):
+        bulks_upsert = f"INSERT OR REPLACE INTO Bulks (server_id, channel_id, name, quantity, max_quantity, " \
+                       f"next_recharge) VALUES( '{self.server}', '{self.channel}', '{name}', " \
+                       f"{quantity}, NULL, NULL); "
+
+        self.database.cursor().execute(bulks_upsert)
+        self.database.commit()
+
+        pass
+
+    def record_inventory(self, inventory):
+
+        self.database.cursor().execute(f"DELETE FROM Items WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'")
+        self.database.cursor().execute(f"DELETE FROM Bulks WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'")
+        self.database.commit()
+
+        for item in inventory.items:
+            if item.entity_data.is_bulk_item:
+                self.record_bulk(item.charges, item.name)
+            else:
+                self.record_item(item.charges, item.name)
 
     def record_my_pc(self, name, user_id, provider, provider_id):
         select = f"SELECT channel_id FROM Characters WHERE " \
@@ -61,8 +86,10 @@ class Archivist(object):
         rows = self.database.execute(select).fetchall()
         return {r[0] for r in rows}
 
-    def delete_characters(self):
+    def delete_characters(self, to_dismiss=None):
         delete = f"DELETE FROM Characters WHERE server_id = '{self.server}' AND channel_id = '{self.channel}'"
+        if to_dismiss is not None:
+            delete += f" AND name = '{to_dismiss}'"
         self.database.cursor().execute(delete)
         self.database.commit()
         pass
@@ -78,7 +105,12 @@ class Archivist(object):
         pass
 
     def find_items(self):
-        select = f"SELECT name, quantity, max_quantity, next_recharge FROM Items WHERE server_id = '{self.server}' " \
+        select = f"SELECT name, charges, max_charges, next_recharge FROM Items WHERE server_id = '{self.server}' " \
+                 f"AND channel_id = '{self.channel}' "
+        return self.database.cursor().execute(select).fetchall()
+
+    def find_bulks(self):
+        select = f"SELECT name, quantity, max_quantity, next_recharge FROM Bulks WHERE server_id = '{self.server}' " \
                  f"AND channel_id = '{self.channel}' "
         return self.database.cursor().execute(select).fetchall()
 
