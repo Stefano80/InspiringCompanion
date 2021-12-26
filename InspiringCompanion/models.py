@@ -243,7 +243,7 @@ class Scene(object):
                       f"with {self.weather.wind_strength_text(self.calendar.season)}"
 
         if self.weather.wind_strength_text(self.calendar.season) != "no winds":
-            description += f" {self.weather.wind_direction_text()}"
+            description += f" {self.weather.wind_direction_text(self.calendar.season)}"
 
         for n, r in enumerate(self.clock.timers.keys()):
             if r == "midnight":
@@ -439,7 +439,7 @@ class Weather(Inspiration):
     def wind_strength_text(self, season):
         winds_strength = ["no", "weak", "strong", "very strong", "hurricane like"]
         ws = self.local_wind_strength(season)
-        ws = clip(int(ws / 10), 0, 5)
+        ws = clip(int(ws / 10), 0, 4)
         return f"{winds_strength[ws]} winds"
 
     def local_wind_direction(self):
