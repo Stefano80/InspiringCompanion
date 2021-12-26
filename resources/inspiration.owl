@@ -181,7 +181,7 @@
 
 <Climate rdf:about="#NorthClimate">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#NamedIndividual"/>
-  <has_wind_strength rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">10</has_wind_strength>
+  <has_wind_strength rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</has_wind_strength>
   <has_wind_direction rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">180</has_wind_direction>
   <has_temperature rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">12</has_temperature>
   <has_clouds rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">30</has_clouds>

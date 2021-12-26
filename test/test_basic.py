@@ -148,6 +148,16 @@ class TestWeather(unittest.TestCase):
         self.assertEqual(c.entity_data.has_wind_direction, c.wind_direction)
         self.assertEqual(c.entity_data.has_precipitation, c.precipitation)
 
+    def test_text(self):
+        c = models.Weather("Neutral Climate")
+
+        texts = ["no", "weak", "strong", "very strong", "hurricane like"]
+        season = models.ONTOLOGY.search(iri="*NeutralSeason")[0]
+        for n in range(5):
+            c.wind_strength = n * 10
+            strength = c.wind_strength_text(season)
+            self.assertTrue(texts[n] in strength)
+
     def test_seasons(self):
         c = models.Weather("North Climate")
         neutral = models.ONTOLOGY.search(iri="*NeutralSeason")[0]
@@ -205,10 +215,6 @@ class TestScene(unittest.TestCase):
         self.assertEqual(models.ONTOLOGY.search(iri="*Winter")[0], director.scene.calendar.season)
         director.scene.sunrise(65)
         self.assertEqual(models.ONTOLOGY.search(iri="*Spring")[0], director.scene.calendar.season)
-
-
-
-
 
 
 class TestLocation(unittest.TestCase):
