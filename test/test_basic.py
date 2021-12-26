@@ -169,11 +169,10 @@ class TestWeather(unittest.TestCase):
         self.assertEqual("16°C", c.temperature_text(neutral))
         self.assertEqual("11°C", c.temperature_text(winter))
 
-        self.assertEqual(4.0, c.wind_strength)
-        self.assertEqual("weak winds", c.wind_strength_text(neutral))
+        self.assertEqual(-0.5, c.wind_strength)
+        self.assertEqual("no winds", c.wind_strength_text(neutral))
 
         self.assertEqual(104.0, c.wind_direction)
-        self.assertEqual("from the west", c.wind_direction_text(neutral))
 
         self.assertEqual(35.0, c.precipitation)
         self.assertEqual("is cloudy", c.precipitation_text(neutral))
